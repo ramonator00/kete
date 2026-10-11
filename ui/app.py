@@ -1,4 +1,7 @@
 import sys
+import hashlib
+import json
+from dataclasses import asdict
 from datetime import datetime
 from html import escape
 from pathlib import Path
@@ -17,7 +20,9 @@ if str(ROOT) not in sys.path:
 from src.data.loader import applications_to_frame, generate_demo_applications
 from src.data.preprocessing import ID_COLUMN, TARGET_COLUMN
 from src.domain import Action, FeedbackReason
-from src.evolutionary.policy import PolicyParameters, recommend_action
+from src.evolutionary.policy import PolicyParameters, recommend_action, policy_score
+from src.evolutionary.genetic_algorithm import optimize
+from src.config import MODELS_DIR
 from src.feedback.feedback_repository import FeedbackRepository
 from src.feedback.feedback_service import FeedbackService
 from src.ml.explain import explain_features, explain_prediction
@@ -27,7 +32,7 @@ from src.ml.predict import predict, predict_from_features
 
 st.set_page_config(page_title="KETE Credit Decision Support", layout="wide")
 
-NAVY = "#1D3458"
+NAVY = "#1C2E4A"
 CHAMPAGNE = "#C7AA6A"
 WARM_WHITE = "#FAF8F3"
 INK = "#111111"
@@ -583,6 +588,23 @@ def recommend_from_probability(probability: float) -> Action:
     return Action.APPROVE
 
 
+def select_application(candidates: pd.DataFrame) -> Optional[str]:
+    status = st.selectbox(
+        "Policy recommendation",
+        ["All", "Not approved (Review + Decline)", "APPROVE", "REVIEW", "DECLINE"],
+    )
+    filtered = candidates
+    if status == "Not approved (Review + Decline)":
+        filtered = filtered[filtered["recommendation"] != Action.APPROVE.value]
+    elif status != "All":
+        filtered = filtered[filtered["recommendation"] == status]
+    if filtered.empty:
+        st.info("No applications match these filters.")
+        return None
+    return st.selectbox("Application", filtered["application_id"].tolist())
+
+
+
 def feature_label(feature: str) -> str:
     return FEATURE_LABELS.get(feature, feature.replace("_", " ").title())
 
@@ -842,7 +864,15 @@ def render_uci_application(row, metadata):
             "Positive bars push the model toward higher default risk; negative bars push it toward lower risk. Values are on the model log-odds scale.",
         )
 
-    render_feedback_form(application_id, recommendation)
+    model_digest = hashlib.sha256((ROOT / "models" / "credit_risk_model.cbm").read_bytes()).hexdigest()
+    render_feedback_form(application_id, recommendation, {
+        "score": prediction.probability_of_default,
+        "thresholds": [0.45, 0.65],
+        "features": {key: float(features[key]) for key in feature_columns},
+        "audit_group": str(row.get("SEX", "unknown")),
+        "model_version": prediction.model_version,
+        "policy_context": f"uci:{model_digest}:0.45:0.65",
+    })
 
 
 def render_application(application):
@@ -879,10 +909,16 @@ def render_application(application):
             "Positive bars indicate risk-increasing factors; negative bars indicate risk-decreasing factors.",
         )
 
-    render_feedback_form(application.application_id, recommendation)
+    render_feedback_form(application.application_id, recommendation, {
+        "score": policy_score(prediction, application),
+        "thresholds": [PolicyParameters().review_threshold, PolicyParameters().decline_threshold],
+        "features": asdict(application), "audit_group": application.gender,
+        "model_version": prediction.model_version,
+        "policy_context": "synthetic-v1:" + json.dumps(asdict(PolicyParameters()), sort_keys=True),
+    })
 
 
-def render_feedback_form(application_id: str, recommendation: Action):
+def render_feedback_form(application_id: str, recommendation: Action, snapshot: dict):
     service = FeedbackService()
     st.divider()
     st.subheader("Advisor decision")
@@ -908,6 +944,7 @@ def render_feedback_form(application_id: str, recommendation: Action):
         try:
             record = service.submit(
                 application_id=application_id,
+                snapshot=snapshot,
                 recommendation=recommendation,
                 advisor_decision=Action(advisor_decision),
                 reason_codes=reason_values,
@@ -926,7 +963,7 @@ def render_feedback_log():
     if not rows:
         st.info("No feedback recorded yet.")
         return
-    frame = pd.DataFrame(rows)
+    frame = pd.DataFrame(rows).drop(columns=["snapshot"], errors="ignore")
     frame["reason_codes"] = frame["reason_codes"].apply(
         lambda items: ", ".join(FEEDBACK_REASON_LABELS.get(item, item.value) for item in items)
     )
@@ -999,7 +1036,42 @@ def format_metric_value(value) -> str:
     return str(value)
 
 
+def render_policy_optimization():
+    st.subheader("Policy optimization · Before / After")
+    st.caption("Offline candidate: optimizes review and decline thresholds against advisor feedback. The active policy stays unchanged. Outcome rewards and override reasons are not training inputs.")
+    records = FeedbackRepository().list_recent(1000000)
+    eligible = [record for record in records if record.get("snapshot")]
+    contexts = sorted({record["snapshot"]["policy_context"] for record in eligible})
+    if contexts:
+        context = st.selectbox("Feedback model / policy context", contexts)
+        selected = [record for record in eligible if record["snapshot"]["policy_context"] == context]
+        count = len({record["application_id"] for record in selected})
+        st.caption(f"{count} distinct applications available. Latest feedback per application is used; 80% train / 20% held-out evaluation.")
+        if st.button("Run genetic optimization", disabled=count < 10):
+            with st.spinner("Evolving policy thresholds…"):
+                try:
+                    optimize(selected)
+                except ValueError as exc:
+                    st.error(str(exc))
+    else:
+        st.info("Save feedback for at least 10 different applications to start optimization. Older feedback without decision snapshots is excluded.")
+    paths = sorted((MODELS_DIR / "policy_runs").glob("*.json"), reverse=True)
+    if not paths:
+        return
+    path = st.selectbox("Saved optimization run", paths, format_func=lambda value: value.stem)
+    result = json.loads(path.read_text())
+    st.caption(f"Offline candidate · {result['created_at']} · Train: {len(result['train_ids'])} · Evaluation: {len(result['test_ids'])} · Seed: {result['seed']}")
+    st.dataframe(pd.DataFrame({"Before": result["before"], "After": result["after"]}), width="stretch")
+    st.caption("Evaluation measures agreement with advisors, not credit outcomes. Approval gap is the difference between group approval rates; small samples are exploratory. Repeated runs on the same feedback reuse the evaluation set.")
+    st.dataframe(pd.DataFrame({"Parameter": ["Review threshold", "Decline threshold"],
+                               "Before": result["baseline_thresholds"], "After": result["candidate_thresholds"]}), hide_index=True)
+    st.line_chart(pd.DataFrame(result["history"]).set_index("generation"))
+    st.dataframe(pd.DataFrame(result["comparison"]), hide_index=True, width="stretch")
+    st.download_button("Download run (JSON)", path.read_text(), file_name=path.name, mime="application/json")
+
+
 def render_experiments(uci_test: Optional[pd.DataFrame]):
+    render_policy_optimization()
     st.subheader("Live data science dashboard")
     metrics, decision_mix = compute_live_data_science_metrics(uci_test)
     metric_rows = [
@@ -1085,16 +1157,26 @@ def main():
     with advisor_tab:
         if uci_test is not None:
             metadata = load_metadata()
-            ids = uci_test[ID_COLUMN].astype(int).astype(str).tolist()
-            selected_id = st.selectbox("Application", ids)
-            row = uci_test.loc[uci_test[ID_COLUMN].astype(int).astype(str) == selected_id].iloc[0]
-            render_uci_application(row, metadata)
+            ids = uci_test[ID_COLUMN].astype(int).astype(str)
+            probabilities = load_model().predict_proba(uci_test[metadata["feature_columns"]])[:, 1]
+            candidates = pd.DataFrame({
+                "application_id": ids,
+                "recommendation": [recommend_from_probability(p).value for p in probabilities],
+            })
+            selected_id = select_application(candidates)
+            if selected_id is not None:
+                row = uci_test.loc[ids == selected_id].iloc[0]
+                render_uci_application(row, metadata)
         else:
             applications = load_applications()
             frame = applications_to_frame(applications)
-            selected_id = st.selectbox("Application", frame["application_id"].tolist())
-            application = next(item for item in applications if item.application_id == selected_id)
-            render_application(application)
+            frame["recommendation"] = [
+                recommend_action(predict(item), item, PolicyParameters()).value for item in applications
+            ]
+            selected_id = select_application(frame)
+            if selected_id is not None:
+                application = next(item for item in applications if item.application_id == selected_id)
+                render_application(application)
         render_feedback_log()
 
     with experiments_tab:

@@ -74,3 +74,4 @@ class FeedbackRecord:
     outcome_reward: Optional[float] = None
     model_version: str = ""
     policy_version: str = ""
+    snapshot: Optional[dict] = None

@@ -21,10 +21,7 @@ def recommend_action(
     historical_reasons: Optional[list[FeedbackReason]] = None,
 ) -> Action:
     reasons = historical_reasons or []
-    adjusted_risk = prediction.probability_of_default
-    adjusted_risk += parameters.debt_weight * max(application.debt_to_income_ratio - 0.35, 0) * 0.15
-    adjusted_risk += parameters.uncertainty_weight * application.model_uncertainty * 0.12
-    adjusted_risk -= parameters.collateral_weight * min(application.collateral_value / max(application.credit_amount, 1), 1) * 0.08
+    adjusted_risk = policy_score(prediction, application, parameters)
 
     if FeedbackReason.DATA_QUALITY in reasons or FeedbackReason.MODEL_UNCERTAINTY in reasons:
         return Action.REVIEW
@@ -35,3 +32,12 @@ def recommend_action(
     if adjusted_risk >= parameters.review_threshold:
         return Action.REVIEW
     return Action.APPROVE
+
+
+def policy_score(prediction, application, parameters=PolicyParameters()) -> float:
+    adjusted_risk = prediction.probability_of_default
+    adjusted_risk += parameters.debt_weight * max(application.debt_to_income_ratio - 0.35, 0) * 0.15
+    adjusted_risk += parameters.uncertainty_weight * application.model_uncertainty * 0.12
+    adjusted_risk -= parameters.collateral_weight * min(application.collateral_value / max(application.credit_amount, 1), 1) * 0.08
+
+    return adjusted_risk

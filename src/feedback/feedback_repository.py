@@ -30,6 +30,9 @@ class FeedbackRepository:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as connection:
             connection.execute(SCHEMA)
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(feedback)")}
+            if "snapshot" not in columns:
+                connection.execute("ALTER TABLE feedback ADD COLUMN snapshot TEXT")
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self.db_path)
@@ -41,9 +44,9 @@ class FeedbackRepository:
                 INSERT INTO feedback (
                     application_id, model_recommendation, advisor_decision, override,
                     reason_codes, verified, comment, immediate_reward, outcome_reward,
-                    model_version, policy_version
+                    model_version, policy_version, snapshot
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     record.application_id,
@@ -57,6 +60,7 @@ class FeedbackRepository:
                     record.outcome_reward,
                     record.model_version,
                     record.policy_version,
+                    json.dumps(record.snapshot) if record.snapshot else None,
                 ),
             )
 
@@ -70,6 +74,7 @@ class FeedbackRepository:
         result = []
         for row in rows:
             item = dict(row)
+            item["snapshot"] = json.loads(item["snapshot"]) if item["snapshot"] else None
             item["reason_codes"] = [FeedbackReason(value) for value in json.loads(item["reason_codes"])]
             return_item = {**item, "override": bool(item["override"]), "verified": bool(item["verified"])}
             result.append(return_item)

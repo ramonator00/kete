@@ -16,12 +16,14 @@ class FeedbackService:
         reason_codes: list[FeedbackReason],
         verified: bool,
         comment: str,
+        snapshot: dict = None,
     ) -> FeedbackRecord:
         override = recommendation != advisor_decision
         if override and not reason_codes:
             raise ValueError("Overrides require at least one structured reason code.")
         record = FeedbackRecord(
             application_id=application_id,
+            snapshot=snapshot,
             model_recommendation=recommendation,
             advisor_decision=advisor_decision,
             override=override,
