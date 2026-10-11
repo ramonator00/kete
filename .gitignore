@@ -1,7 +1,16 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+.pycache_tmp/
 *.py[codz]
 *$py.class
+
+# Generated project artifacts
+data/raw/*
+data/processed/*
+data/synthetic_feedback/*.sqlite3
+models/*.cbm
+models/*.pkl
+catboost_info/
 
 # C extensions
 *.so
