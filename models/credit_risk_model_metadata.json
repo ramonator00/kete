@@ -1,0 +1,83 @@
+{
+  "categorical_columns": [
+    "SEX",
+    "EDUCATION",
+    "MARRIAGE"
+  ],
+  "dataset": "UCI Default of Credit Card Clients",
+  "feature_columns": [
+    "LIMIT_BAL",
+    "SEX",
+    "EDUCATION",
+    "MARRIAGE",
+    "AGE",
+    "PAY_0",
+    "PAY_2",
+    "PAY_3",
+    "PAY_4",
+    "PAY_5",
+    "PAY_6",
+    "BILL_AMT1",
+    "BILL_AMT2",
+    "BILL_AMT3",
+    "BILL_AMT4",
+    "BILL_AMT5",
+    "BILL_AMT6",
+    "PAY_AMT1",
+    "PAY_AMT2",
+    "PAY_AMT3",
+    "PAY_AMT4",
+    "PAY_AMT5",
+    "PAY_AMT6"
+  ],
+  "metrics": {
+    "brier_score": 0.1783,
+    "calibration_curve": {
+      "fraction_of_positives": [
+        0.0432,
+        0.0505,
+        0.0971,
+        0.1508,
+        0.1712,
+        0.291,
+        0.3548,
+        0.4883,
+        0.6039,
+        0.7866
+      ],
+      "mean_predicted_value": [
+        0.076,
+        0.1549,
+        0.2546,
+        0.3492,
+        0.4443,
+        0.545,
+        0.65,
+        0.7503,
+        0.8585,
+        0.9209
+      ]
+    },
+    "confusion_matrix": [
+      [
+        3799,
+        874
+      ],
+      [
+        509,
+        818
+      ]
+    ],
+    "pr_auc": 0.5597,
+    "roc_auc": 0.7778
+  },
+  "model_path": "/Users/ramona/dev/kete/models/credit_risk_model.cbm",
+  "model_version": "demo-risk-v0.1",
+  "random_seed": 42,
+  "risk_thresholds": {
+    "elevated": 0.45,
+    "high": 0.65,
+    "low": 0.2
+  },
+  "target_column": "default_payment_next_month"
+}
