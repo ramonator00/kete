@@ -32,7 +32,7 @@ def metrics(cases, thresholds):
     }
 
 
-def optimize(records, output_dir=None):
+def optimize(records, output_dir=None, seed=RANDOM_SEED, generations=None):
     # Keep the latest label per application; repeated feedback must not cross splits.
     latest = {}
     for record in sorted(records, key=lambda r: r['id']):
@@ -44,7 +44,13 @@ def optimize(records, output_dir=None):
         raise ValueError('Select feedback from one model and baseline policy context.')
     if len(cases) < 10:
         raise ValueError('At least 10 distinct applications with saved decision snapshots are required.')
-    rng = random.Random(RANDOM_SEED)
+    config = dict(GA_CONFIG)
+    if generations is not None:
+        if generations < 1:
+            raise ValueError('At least one generation is required.')
+        config['generations'] = generations
+    config['random_seed'] = seed
+    rng = random.Random(seed)
     cases.sort(key=lambda c: c['application_id'])
     rng.shuffle(cases)
     split = max(1, int(len(cases) * .8))
@@ -54,10 +60,13 @@ def optimize(records, output_dir=None):
         return tuple(sorted([rng.uniform(.05, .95), rng.uniform(.05, .95)]))
     population = [baseline] + [individual() for _ in range(GA_CONFIG['population_size'] - 1)]
     history = []
-    for generation in range(GA_CONFIG['generations'] + 1):
+    for generation in range(config['generations'] + 1):
         population.sort(key=lambda p: metrics(train, p)['mean_reward'], reverse=True)
-        history.append({'generation': generation, 'training_reward': metrics(train, population[0])['mean_reward']})
-        if generation == GA_CONFIG['generations']:
+        rewards = [metrics(train, individual)['mean_reward'] for individual in population]
+        history.append({'generation': generation, 'training_reward': rewards[0],
+                        'mean_training_reward': sum(rewards) / len(rewards),
+                        'review_threshold': population[0][0], 'decline_threshold': population[0][1]})
+        if generation == config['generations']:
             break
         children = population[:GA_CONFIG['elite_size']]
         while len(children) < GA_CONFIG['population_size']:
@@ -84,7 +93,7 @@ def optimize(records, output_dir=None):
     now = datetime.now(timezone.utc)
     result = {
         'run_id': now.strftime('%Y%m%dT%H%M%S%fZ'), 'created_at': now.isoformat(),
-        'seed': RANDOM_SEED, 'config': GA_CONFIG, 'policy_context': next(iter(signatures)),
+        'seed': seed, 'config': config, 'policy_context': next(iter(signatures)),
         'optimized_parameters': ['review_threshold', 'decline_threshold'],
         'baseline_thresholds': baseline, 'candidate_thresholds': best,
         'train_ids': [c['application_id'] for c in train], 'test_ids': [c['application_id'] for c in test],

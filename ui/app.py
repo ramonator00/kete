@@ -1072,6 +1072,7 @@ def render_policy_optimization():
 
 def render_experiments(uci_test: Optional[pd.DataFrame]):
     render_policy_optimization()
+    render_appendix_plots(uci_test)
     st.subheader("Live data science dashboard")
     metrics, decision_mix = compute_live_data_science_metrics(uci_test)
     metric_rows = [
@@ -1127,6 +1128,42 @@ def render_experiments(uci_test: Optional[pd.DataFrame]):
     st.caption(
         "Live means recalculated from the currently loaded model, local UCI test split and current feedback database on each app refresh. Historical labels are used only for evaluation, not for making a decision."
     )
+
+
+def render_appendix_plots(uci_test):
+    st.subheader("Model evaluation · Thesis appendix")
+    if uci_test is None:
+        st.info("Train CatBoost and create the UCI test split to generate evaluation figures.")
+        return
+    st.caption("Held-out test evaluation at threshold 0.5. Positive class: default next month. Exports include 300 dpi PNG, vector PDF/SVG, CSV tables and interpretation notes.")
+    if st.button("Generate evaluation plots and appendix export"):
+        from src.evaluation.report import build_report, report_archive
+        import matplotlib.pyplot as plt
+        import io
+        with st.spinner("Generating figures…"):
+            figures, tables, manifest = build_report(uci_test)
+            try:
+                previews = {}
+                for name, fig in figures.items():
+                    buffer = io.BytesIO()
+                    fig.savefig(buffer, format="png", dpi=120, bbox_inches="tight")
+                    previews[name] = buffer.getvalue()
+                st.session_state["appendix_report"] = {
+                    "previews": previews,
+                    "archive": report_archive(figures, tables, manifest),
+                    "metrics": tables["metrics"],
+                }
+            finally:
+                for fig in figures.values():
+                    plt.close(fig)
+    report = st.session_state.get("appendix_report")
+    if report:
+        st.download_button("Download appendix figures and tables (ZIP)", report["archive"],
+                           file_name="kete_appendix.zip", mime="application/zip")
+        st.dataframe(report["metrics"], hide_index=True)
+        with st.expander("Show evaluation figures"):
+            for name, preview in report["previews"].items():
+                st.image(preview, caption=name.replace("_", " "))
 
 
 def main():

@@ -1,0 +1,9 @@
+{
+  "model_sha256": "5d7eefcb894d60471eabf7af144a67cf629afc483e945d5d65ff062b69c410fb",
+  "test_file_sha256": "09b47104fc8bac681ded6f79e77c8188ddfd79b1803eafb1f2df29bf51df5dfb",
+  "n_test": 6000,
+  "threshold": 0.5,
+  "positive_class": "default_payment_next_month=1",
+  "age_bins": "\u226429, 30\u201339, 40\u201349, \u226550",
+  "age_bins_purpose": "exploratory"
+}

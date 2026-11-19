@@ -1,0 +1,6 @@
+,Static baseline,GA candidate
+mean_reward,0.42375,0.44549999999999995
+agreement_rate,0.59,0.605
+override_rate,0.41,0.395
+review_rate,0.16,0.135
+approval_gap,0.007970302434763599,0.007970302434763599

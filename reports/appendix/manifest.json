@@ -1,0 +1,9 @@
+{
+  "model_sha256": "5d7eefcb894d60471eabf7af144a67cf629afc483e945d5d65ff062b69c410fb",
+  "test_rows": 6000,
+  "test_default_prevalence": 0.22116666666666668,
+  "classification_threshold": 0.5,
+  "positive_class": "default_payment_next_month = 1",
+  "retained_trees": 271,
+  "test_data_sha256": "09b47104fc8bac681ded6f79e77c8188ddfd79b1803eafb1f2df29bf51df5dfb"
+}

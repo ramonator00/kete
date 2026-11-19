@@ -1,0 +1,3 @@
+group,n,no_default_n,false_positives,false_positive_rate,default_n,false_negatives,false_negative_rate,true_positives,true_negatives
+Female (SEX=2),3598,2832,489,0.17266949152542374,766,297,0.3877284595300261,469,2343
+Male (SEX=1),2402,1841,385,0.20912547528517111,561,212,0.3778966131907308,349,1456
