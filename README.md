@@ -74,7 +74,7 @@ Bei einem Schwellenwert von 0,5 beträgt die Falsch-Positiv-Rate auf den Testdat
 
 Der Vergleich zeigt Unterschiede, erklärt aber nicht deren Ursachen und ist für sich genommen kein Diskriminierungs- oder Fairnessnachweis. Die Klassifikation des Risikomodells entspricht nicht unmittelbar einer realen Ablehnung. Ergänzend wurden die SHAP-Beiträge der Merkmale Geschlecht und Alter gruppenweise beschrieben. Diese Modellbeiträge sind keine kausalen Effekte; beide Merkmale werden im trainierten Modell verwendet.
 
-[Grafik zu den Falsch-Positiv-Raten](doc/abbildungen/fairness_falsch_positiv_raten.png) · [Tabellen und Hinweise](reports/fairness/README.md)
+[Grafik zu den Falsch-Positiv-Raten](doc/abbildungen/fairness_falsch_positiv_raten.png)
 
 ### Hypothetische Kundenberatersimulation
 
@@ -136,8 +136,6 @@ python -m src.evaluation.simulate_advisor --generations 20
 # Tests
 python -m pytest -q
 ```
-
-Die Skripte setzen das gespeicherte Modell und die verarbeiteten UCI-Daten voraus und schreiben generierte Auswertungen nach `reports/`. Die Simulation schreibt nicht in die Feedbackdatenbank und aktiviert keine Policy. Der vorhandene vollständige Export liegt zusätzlich als [Modell-ZIP](reports/kete_appendix.zip), [Fairness-ZIP](reports/fairness.zip), [GA-ZIP für eine Generation](reports/ga_simulation_one_generation.zip) und [GA-ZIP für 20 Generationen](reports/ga_simulation.zip) vor. Tabellen, Laufkonfigurationen und Interpretationshinweise bleiben ebenfalls unter `reports/` erhalten.
 
 ## Was der Prototyp leistet – und was noch offen ist
 
