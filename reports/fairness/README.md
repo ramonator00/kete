@@ -1,7 +1,0 @@
-# Explorative Fairness-Auswertung
-
-Datensatz: gespeicherter UCI-Testsplit, eingefrorenes CatBoost-Modell, Schwellenwert 0,5. Positive Klasse: Zahlungsausfall im Folgemonat. Die Falsch-Positiv-Rate ist FP / (FP + TN), also der Anteil falsch als Ausfall eingestufter Fälle unter den tatsächlich nicht ausgefallenen Fällen. Der Klassifikationsschwellenwert ist nicht die dreistufige Policy-Empfehlung. Altersgrenzen wurden für diese explorative Analyse festgelegt. SEX=1/2 entsprechen den Datensatzkategorien male/female und bilden Geschlecht nur eingeschränkt ab.
-
-Die Tabelle enthält zusätzlich Fallzahlen und Falsch-Negativ-Raten. Die Gruppen unterscheiden sich potenziell hinsichtlich weiterer Merkmale; Unterschiede sind deskriptiv, keine Kausal- oder Diskriminierungsnachweise. Keine Konfidenzintervalle oder Tests für statistische Signifikanz; kleine Gruppen und frei gewählte Altersgrenzen erschweren die Interpretation. Historische Kreditkartenlabels zeigen keine tatsächliche spätere Kreditbewilligung.
-
-Die SHAP-Tabelle zeigt für SEX bzw. AGE den mittleren signierten und den mittleren absoluten Featurebeitrag je Gruppe, auf der Rohwert-/Log-Odds-Skala. Der Mittelwert hängt vom Modell, der Featureverteilung und dem SHAP-Hintergrund ab. Er ist kein kausaler Einfluss, kein Wahrscheinlichkeitsunterschied und kein eigenständiger Fairnessnachweis. Weitere Merkmale können als Proxys wirken. Im Modell werden AGE und SEX als Features verwendet. Nicht mit einer SHAP-Erklärung einzelner Entscheide verwechseln.
